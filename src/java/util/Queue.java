@@ -46,29 +46,29 @@ package java.util;
  * specifically for use with capacity-restricted {@code Queue}
  * implementations; in most implementations, insert operations cannot
  * fail.
- *
+ * <p>
  * <table BORDER CELLPADDING=3 CELLSPACING=1>
  * <caption>Summary of Queue methods</caption>
- *  <tr>
- *    <td></td>
- *    <td ALIGN=CENTER><em>Throws exception</em></td>
- *    <td ALIGN=CENTER><em>Returns special value</em></td>
- *  </tr>
- *  <tr>
- *    <td><b>Insert</b></td>
- *    <td>{@link Queue#add add(e)}</td>
- *    <td>{@link Queue#offer offer(e)}</td>
- *  </tr>
- *  <tr>
- *    <td><b>Remove</b></td>
- *    <td>{@link Queue#remove remove()}</td>
- *    <td>{@link Queue#poll poll()}</td>
- *  </tr>
- *  <tr>
- *    <td><b>Examine</b></td>
- *    <td>{@link Queue#element element()}</td>
- *    <td>{@link Queue#peek peek()}</td>
- *  </tr>
+ * <tr>
+ * <td></td>
+ * <td ALIGN=CENTER><em>Throws exception</em></td>
+ * <td ALIGN=CENTER><em>Returns special value</em></td>
+ * </tr>
+ * <tr>
+ * <td><b>Insert</b></td>
+ * <td>{@link Queue#add add(e)}</td>
+ * <td>{@link Queue#offer offer(e)}</td>
+ * </tr>
+ * <tr>
+ * <td><b>Remove</b></td>
+ * <td>{@link Queue#remove remove()}</td>
+ * <td>{@link Queue#poll poll()}</td>
+ * </tr>
+ * <tr>
+ * <td><b>Examine</b></td>
+ * <td>{@link Queue#element element()}</td>
+ * <td>{@link Queue#peek peek()}</td>
+ * </tr>
  * </table>
  *
  * <p>Queues typically, but do not necessarily, order elements in a
@@ -129,6 +129,8 @@ package java.util;
  * <a href="{@docRoot}/../technotes/guides/collections/index.html">
  * Java Collections Framework</a>.
  *
+ * @param <E> the type of elements held in this collection
+ * @author Doug Lea
  * @see java.util.Collection
  * @see LinkedList
  * @see PriorityQueue
@@ -138,8 +140,6 @@ package java.util;
  * @see java.util.concurrent.LinkedBlockingQueue
  * @see java.util.concurrent.PriorityBlockingQueue
  * @since 1.5
- * @author Doug Lea
- * @param <E> the type of elements held in this collection
  */
 public interface Queue<E> extends Collection<E> {
     /**
@@ -150,14 +150,14 @@ public interface Queue<E> extends Collection<E> {
      *
      * @param e the element to add
      * @return {@code true} (as specified by {@link Collection#add})
-     * @throws IllegalStateException if the element cannot be added at this
-     *         time due to capacity restrictions
-     * @throws ClassCastException if the class of the specified element
-     *         prevents it from being added to this queue
-     * @throws NullPointerException if the specified element is null and
-     *         this queue does not permit null elements
+     * @throws IllegalStateException    if the element cannot be added at this
+     *                                  time due to capacity restrictions
+     * @throws ClassCastException       if the class of the specified element
+     *                                  prevents it from being added to this queue
+     * @throws NullPointerException     if the specified element is null and
+     *                                  this queue does not permit null elements
      * @throws IllegalArgumentException if some property of this element
-     *         prevents it from being added to this queue
+     *                                  prevents it from being added to this queue
      */
     boolean add(E e);
 
@@ -170,15 +170,21 @@ public interface Queue<E> extends Collection<E> {
      *
      * @param e the element to add
      * @return {@code true} if the element was added to this queue, else
-     *         {@code false}
-     * @throws ClassCastException if the class of the specified element
-     *         prevents it from being added to this queue
-     * @throws NullPointerException if the specified element is null and
-     *         this queue does not permit null elements
+     * {@code false}
+     * @throws ClassCastException       if the class of the specified element
+     *                                  prevents it from being added to this queue
+     * @throws NullPointerException     if the specified element is null and
+     *                                  this queue does not permit null elements
      * @throws IllegalArgumentException if some property of this element
-     *         prevents it from being added to this queue
+     *                                  prevents it from being added to this queue
      */
     boolean offer(E e);
+
+    /*
+     * add 和 offer 有什么区别？
+     * add比offer多抛出一个异常，当队列已满的时候，add不允许添加，offer是可以的
+     * 实现类 ArrayBlockingQueue的add的底层最后调的是offer
+     */
 
     /**
      * Retrieves and removes the head of this queue.  This method differs
@@ -198,6 +204,11 @@ public interface Queue<E> extends Collection<E> {
      */
     E poll();
 
+    /*
+     * remove 和 poll 有什么区别？
+     * 队列为空的时候remove会抛异常，poll不会
+     */
+
     /**
      * Retrieves, but does not remove, the head of this queue.  This method
      * differs from {@link #peek peek} only in that it throws an exception
@@ -215,4 +226,10 @@ public interface Queue<E> extends Collection<E> {
      * @return the head of this queue, or {@code null} if this queue is empty
      */
     E peek();
+
+
+    /*
+     * element 和 peek 有什么区别？
+     * 队列为空的时候 element 会抛异常，peek 不会
+     */
 }
