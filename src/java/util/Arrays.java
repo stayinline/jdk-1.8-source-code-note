@@ -72,6 +72,24 @@ import java.util.stream.StreamSupport;
  * @author John Rose
  * @since 1.2
  */
+/*
+ * 几大类别：
+ *      sort
+ *           parallelSort(jdk1.8)
+ *
+ *      binarySearch
+ *
+ *      fill
+ *
+ *      copy
+ *
+ *      toString
+ *
+ *      spliterator(jdk1.8)
+ *
+ *      stream(jdk1.8)
+ *
+ */
 public class Arrays {
 
     /**
@@ -1740,7 +1758,10 @@ public class Arrays {
                     (null, op, array, fromIndex, toIndex).invoke();
     }
 
-    // Searching
+    // Searching---------
+
+    // 所有的二分查找方法，在调用之前，必须是排好序的，二分查找只会将数组当做排好序的直接使用
+    // 并且二分查找和排序一样，提供了各种基础类型和模板类型T一样的方法
 
     /**
      * Searches the specified array of longs for the specified value using the
@@ -1760,6 +1781,10 @@ public class Arrays {
      * elements in the array are less than the specified key.  Note
      * that this guarantees that the return value will be &gt;= 0 if
      * and only if the key is found.
+     * <p>
+     * 注意：
+     * 找不到元素的时候会返回一个负数，这个负数不是固定的，
+     * 值：-(low + 1)
      */
     public static int binarySearch(long[] a, long key) {
         return binarySearch0(a, 0, a.length, key);
@@ -4262,6 +4287,8 @@ public class Arrays {
             eq = e1.equals(e2);
         return eq;
     }
+
+    // toString 方法中遇到null元素，是直接append了一个"null"字符串
 
     /**
      * Returns a string representation of the contents of the specified array.
