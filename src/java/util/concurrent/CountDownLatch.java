@@ -34,9 +34,11 @@
  */
 
 package java.util.concurrent;
+
 import java.util.concurrent.locks.AbstractQueuedSynchronizer;
 
 /**
+ * 一种同步辅助，允许一个或多个线程，等待一组正在其他线程中执行的操作完成
  * A synchronization aid that allows one or more threads to wait until
  * a set of operations being performed in other threads completes.
  *
@@ -47,6 +49,9 @@ import java.util.concurrent.locks.AbstractQueuedSynchronizer;
  * {@link #await await} return immediately.  This is a one-shot phenomenon
  * -- the count cannot be reset.  If you need a version that resets the
  * count, consider using a {@link CyclicBarrier}.
+ * 注意：
+ * count值不能reset，只能递减，并且没有提供更改count值的接口
+ * CyclicBarrier支持reset这个值，注意区别
  *
  * <p>A {@code CountDownLatch} is a versatile synchronization tool
  * and can be used for a number of purposes.  A
@@ -150,13 +155,20 @@ import java.util.concurrent.locks.AbstractQueuedSynchronizer;
  * actions following a successful return from a corresponding
  * {@code await()} in another thread.
  *
- * @since 1.5
  * @author Doug Lea
+ * @since 1.5
  */
 public class CountDownLatch {
     /**
      * Synchronization control For CountDownLatch.
      * Uses AQS state to represent count.
+     * 继承自AQS，并且用AQS的state字段来当做count
+     * 然后通过父类的setState和getState方法来执行count--，实现countDown
+     * <p>
+     * 注意：
+     * CountDownLatch的设计是多态的思想，父类做公共的逻辑，子类个性化处理
+     * <p>
+     * 因为这个count是要给其他线程也操作的，所以对于AQS来说是shared类型
      */
     private static final class Sync extends AbstractQueuedSynchronizer {
         private static final long serialVersionUID = 4982264981922014374L;
@@ -169,30 +181,35 @@ public class CountDownLatch {
             return getState();
         }
 
+        @Override
         protected int tryAcquireShared(int acquires) {
             return (getState() == 0) ? 1 : -1;
         }
 
+        @Override
         protected boolean tryReleaseShared(int releases) {
             // Decrement count; signal when transition to zero
-            for (;;) {
+            for (; ; ) {
                 int c = getState();
                 if (c == 0)
                     return false;
-                int nextc = c-1;
+                int nextc = c - 1;
                 if (compareAndSetState(c, nextc))
                     return nextc == 0;
             }
         }
     }
 
+    // 注意：这里是final修饰的，也就是说，这个CountDownLatch一旦初始化之后是不可变更的
     private final Sync sync;
 
     /**
      * Constructs a {@code CountDownLatch} initialized with the given count.
+     * 唯一的构造方法：
+     * 内部创建 Sync 对象实现控制逻辑
      *
      * @param count the number of times {@link #countDown} must be invoked
-     *        before threads can pass through {@link #await}
+     *              before threads can pass through {@link #await}
      * @throws IllegalArgumentException if {@code count} is negative
      */
     public CountDownLatch(int count) {
@@ -225,8 +242,9 @@ public class CountDownLatch {
      * interrupted status is cleared.
      *
      * @throws InterruptedException if the current thread is interrupted
-     *         while waiting
+     *                              while waiting
      */
+    // 所以await是一定可以响应中断的
     public void await() throws InterruptedException {
         sync.acquireSharedInterruptibly(1);
     }
@@ -266,14 +284,14 @@ public class CountDownLatch {
      * will not wait at all.
      *
      * @param timeout the maximum time to wait
-     * @param unit the time unit of the {@code timeout} argument
+     * @param unit    the time unit of the {@code timeout} argument
      * @return {@code true} if the count reached zero and {@code false}
-     *         if the waiting time elapsed before the count reached zero
+     * if the waiting time elapsed before the count reached zero
      * @throws InterruptedException if the current thread is interrupted
-     *         while waiting
+     *                              while waiting
      */
     public boolean await(long timeout, TimeUnit unit)
-        throws InterruptedException {
+            throws InterruptedException {
         return sync.tryAcquireSharedNanos(1, unit.toNanos(timeout));
     }
 
@@ -309,6 +327,7 @@ public class CountDownLatch {
      *
      * @return a string identifying this latch, as well as its state
      */
+    @Override
     public String toString() {
         return super.toString() + "[Count = " + sync.getCount() + "]";
     }
