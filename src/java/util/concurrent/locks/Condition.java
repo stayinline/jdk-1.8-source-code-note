@@ -34,6 +34,7 @@
  */
 
 package java.util.concurrent.locks;
+
 import java.util.concurrent.TimeUnit;
 import java.util.Date;
 
@@ -41,8 +42,8 @@ import java.util.Date;
  * {@code Condition} factors out the {@code Object} monitor
  * methods ({@link Object#wait() wait}, {@link Object#notify notify}
  * and {@link Object#notifyAll notifyAll}) into distinct objects to
- * give the effect of having multiple wait-sets per object, by
- * combining them with the use of arbitrary {@link Lock} implementations.
+ * give the effect of having multiple wait-sets per object（每个对象有多个等待集）,
+ * by combining them with the use of arbitrary {@link Lock} implementations.
  * Where a {@code Lock} replaces the use of {@code synchronized} methods
  * and statements, a {@code Condition} replaces the use of the Object
  * monitor methods.
@@ -56,8 +57,14 @@ import java.util.Date;
  * condition. The key property that waiting for a condition provides
  * is that it <em>atomically</em> releases the associated lock and
  * suspends the current thread, just like {@code Object.wait}.
+ * <p>
+ * 翻译：
+ * <p>
+ * 一个{@code Condition}实例本质上绑定到一个锁。
+ * *获取特定{@link Lock}的{@code Condition}实例
+ * 这个实例使用它的{@link Lock#newCondition newCondition()}方法。
  *
- * <p>A {@code Condition} instance is intrinsically bound to a lock.
+ * <p>A {@code Condition} instance is intrinsically（本质上） bound to a lock.
  * To obtain a {@code Condition} instance for a particular {@link Lock}
  * instance use its {@link Lock#newCondition newCondition()} method.
  *
@@ -73,7 +80,7 @@ import java.util.Date;
  * {@link Condition} instances.
  * <pre>
  * class BoundedBuffer {
- *   <b>final Lock lock = new ReentrantLock();</b>
+ *   final Lock lock = new ReentrantLock();</b>
  *   final Condition notFull  = <b>lock.newCondition(); </b>
  *   final Condition notEmpty = <b>lock.newCondition(); </b>
  *
@@ -110,7 +117,7 @@ import java.util.Date;
  *   }
  * }
  * </pre>
- *
+ * <p>
  * (The {@link java.util.concurrent.ArrayBlockingQueue} class provides
  * this functionality, so there is no reason to implement this
  * sample usage class.)
@@ -173,8 +180,8 @@ import java.util.Date;
  * shown that the interrupt occurred after another action that may have
  * unblocked the thread. An implementation should document this behavior.
  *
- * @since 1.5
  * @author Doug Lea
+ * @since 1.5
  */
 public interface Condition {
 
@@ -183,8 +190,8 @@ public interface Condition {
      * {@linkplain Thread#interrupt interrupted}.
      *
      * <p>The lock associated with this {@code Condition} is atomically
-     * released and the current thread becomes disabled for thread scheduling
-     * purposes and lies dormant until <em>one</em> of four things happens:
+     * released and the current thread becomes disabled（禁用的） for thread scheduling
+     * purposes and lies dormant（休眠） until <em>one</em> of four things happens:
      * <ul>
      * <li>Some other thread invokes the {@link #signal} method for this
      * {@code Condition} and the current thread happens to be chosen as the
@@ -194,6 +201,8 @@ public interface Condition {
      * <li>Some other thread {@linkplain Thread#interrupt interrupts} the
      * current thread, and interruption of thread suspension is supported; or
      * <li>A &quot;<em>spurious wakeup</em>&quot; occurs.
+     * 一个虚假的唤醒发生了
+     * 在wait和notify一块使用时，如果使用if作为条件时，会有虚假唤醒的情况发生，所以必须使用while作为循环条件
      * </ul>
      *
      * <p>In all cases, before this method can return the current thread must
@@ -219,14 +228,22 @@ public interface Condition {
      * the case and if not, how to respond. Typically, an exception will be
      * thrown (such as {@link IllegalMonitorStateException}) and the
      * implementation must document that fact.
-     *
+     * <p>
+     * 一个实现可以更倾向于响应一个中断，而不是响应一个信号的正常方法返回。
+     * 在这种情况下，实现必须确保将信号重定向到另一个等待线程(如果有的话)。
      * <p>An implementation can favor responding to an interrupt over normal
      * method return in response to a signal. In that case the implementation
      * must ensure that the signal is redirected to another waiting thread, if
      * there is one.
      *
      * @throws InterruptedException if the current thread is interrupted
-     *         (and interruption of thread suspension is supported)
+     *                              (and interruption of thread suspension is supported)
+     *                              <p>
+     *                              <p>
+     */
+    /*
+     * 注意：
+     *  这个接口是最重要的！！！
      */
     void await() throws InterruptedException;
 
@@ -347,13 +364,13 @@ public interface Condition {
      *
      * @param nanosTimeout the maximum time to wait, in nanoseconds
      * @return an estimate of the {@code nanosTimeout} value minus
-     *         the time spent waiting upon return from this method.
-     *         A positive value may be used as the argument to a
-     *         subsequent call to this method to finish waiting out
-     *         the desired time.  A value less than or equal to zero
-     *         indicates that no time remains.
+     * the time spent waiting upon return from this method.
+     * A positive value may be used as the argument to a
+     * subsequent call to this method to finish waiting out
+     * the desired time.  A value less than or equal to zero
+     * indicates that no time remains.
      * @throws InterruptedException if the current thread is interrupted
-     *         (and interruption of thread suspension is supported)
+     *                              (and interruption of thread suspension is supported)
      */
     long awaitNanos(long nanosTimeout) throws InterruptedException;
 
@@ -361,14 +378,14 @@ public interface Condition {
      * Causes the current thread to wait until it is signalled or interrupted,
      * or the specified waiting time elapses. This method is behaviorally
      * equivalent to:
-     *  <pre> {@code awaitNanos(unit.toNanos(time)) > 0}</pre>
+     * <pre> {@code awaitNanos(unit.toNanos(time)) > 0}</pre>
      *
      * @param time the maximum time to wait
      * @param unit the time unit of the {@code time} argument
      * @return {@code false} if the waiting time detectably elapsed
-     *         before return from the method, else {@code true}
+     * before return from the method, else {@code true}
      * @throws InterruptedException if the current thread is interrupted
-     *         (and interruption of thread suspension is supported)
+     *                              (and interruption of thread suspension is supported)
      */
     boolean await(long time, TimeUnit unit) throws InterruptedException;
 
@@ -443,9 +460,9 @@ public interface Condition {
      *
      * @param deadline the absolute time to wait until
      * @return {@code false} if the deadline has elapsed upon return, else
-     *         {@code true}
+     * {@code true}
      * @throws InterruptedException if the current thread is interrupted
-     *         (and interruption of thread suspension is supported)
+     *                              (and interruption of thread suspension is supported)
      */
     boolean awaitUntil(Date deadline) throws InterruptedException;
 
@@ -455,6 +472,7 @@ public interface Condition {
      * <p>If any threads are waiting on this condition then one
      * is selected for waking up. That thread must then re-acquire the
      * lock before returning from {@code await}.
+     * 被唤醒的线程必须在再一次调用await 之前拿到锁
      *
      * <p><b>Implementation Considerations</b>
      *
@@ -464,6 +482,8 @@ public interface Condition {
      * document this precondition and any actions taken if the lock is
      * not held. Typically, an exception such as {@link
      * IllegalMonitorStateException} will be thrown.
+     *
+     * 在调用signal之前如果没有持有锁，那么会抛出这个异常
      */
     void signal();
 
