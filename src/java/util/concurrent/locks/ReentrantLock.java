@@ -283,7 +283,7 @@ public class ReentrantLock implements Lock, java.io.Serializable {
     /**
      * Creates an instance of {@code ReentrantLock}.
      * This is equivalent to using {@code ReentrantLock(false)}.
-     *
+     * <p>
      * 默认实现是非公平的
      */
     public ReentrantLock() {
@@ -631,6 +631,7 @@ public class ReentrantLock implements Lock, java.io.Serializable {
      * @return {@code true} if this lock has fairness set true
      */
     public final boolean isFair() {
+        // 直接判断是不是 FairSync 的类对象即可
         return sync instanceof FairSync;
     }
 
@@ -657,6 +658,8 @@ public class ReentrantLock implements Lock, java.io.Serializable {
      * return does not guarantee that any other thread will ever
      * acquire this lock.  This method is designed primarily for use in
      * monitoring of the system state.
+     * <p>
+     * 判断是否有线程在等待队列等待
      *
      * @return {@code true} if there may be other threads waiting to
      * acquire the lock
@@ -671,6 +674,8 @@ public class ReentrantLock implements Lock, java.io.Serializable {
      * {@code true} return does not guarantee that this thread
      * will ever acquire this lock.  This method is designed primarily for use
      * in monitoring of the system state.
+     * <p>
+     * 判断参数给定的线程是否在等待队列中
      *
      * @param thread the thread
      * @return {@code true} if the given thread is queued waiting for this lock
@@ -729,6 +734,7 @@ public class ReentrantLock implements Lock, java.io.Serializable {
             throw new NullPointerException();
         if (!(condition instanceof AbstractQueuedSynchronizer.ConditionObject))
             throw new IllegalArgumentException("not owner");
+        // 直接判断是否有等待线程即可
         return sync.hasWaiters((AbstractQueuedSynchronizer.ConditionObject) condition);
     }
 
@@ -777,6 +783,7 @@ public class ReentrantLock implements Lock, java.io.Serializable {
             throw new NullPointerException();
         if (!(condition instanceof AbstractQueuedSynchronizer.ConditionObject))
             throw new IllegalArgumentException("not owner");
+        // 返回所有在这个condition上等待的线程
         return sync.getWaitingThreads((AbstractQueuedSynchronizer.ConditionObject) condition);
     }
 
