@@ -41,6 +41,7 @@ package java.util.concurrent.locks;
  * The {@link #readLock read lock} may be held simultaneously by
  * multiple reader threads, so long as there are no writers.  The
  * {@link #writeLock write lock} is exclusive.
+ * 只有写锁是排他的
  *
  * <p>All {@code ReadWriteLock} implementations must guarantee that
  * the memory synchronization effects of {@code writeLock} operations
@@ -48,6 +49,7 @@ package java.util.concurrent.locks;
  * to the associated {@code readLock}. That is, a thread successfully
  * acquiring the read lock will see all updates made upon previous
  * release of the write lock.
+ * 也就是说，成功获得读锁的线程将看到在前一次释放写锁之后所做的所有更新
  *
  * <p>A read-write lock allows for a greater level of concurrency in
  * accessing shared data than that permitted by a mutual exclusion lock.
@@ -55,6 +57,7 @@ package java.util.concurrent.locks;
  * <em>writer</em> thread) can modify the shared data, in many cases any
  * number of threads can concurrently read the data (hence <em>reader</em>
  * threads).
+ * 并发场景，一般都是读多写少，读应该是共享的
  * In theory, the increase in concurrency permitted by the use of a read-write
  * lock will lead to performance improvements over the use of a mutual
  * exclusion lock. In practice this increase in concurrency will only be fully
@@ -91,30 +94,33 @@ package java.util.concurrent.locks;
  * short and infrequent. Reader preference is less common as it can lead to
  * lengthy delays for a write if the readers are frequent and long-lived as
  * expected. Fair, or &quot;in-order&quot; implementations are also possible.
+ * （1）写场景很快、很不频繁；读场景很频繁
  *
  * <li>Determining whether readers that request the read lock while a
  * reader is active and a writer is waiting, are granted the read lock.
  * Preference to the reader can delay the writer indefinitely, while
  * preference to the writer can reduce the potential for concurrency.
+ * （2）判断当一个读操作处于活动状态而一个写操作处于等待状态时，请求读锁的读操作是否被授予读锁。
+ * 优先选择读取器会无限期地延迟写入器，而优先选择写入器则会降低并发的可能性。
  *
  * <li>Determining whether the locks are reentrant: can a thread with the
  * write lock reacquire it? Can it acquire a read lock while holding the
  * write lock? Is the read lock itself reentrant?
- *
+ * （3）判断是否可重入：
  * <li>Can the write lock be downgraded to a read lock without allowing
  * an intervening writer? Can a read lock be upgraded to a write lock,
  * in preference to other waiting readers or writers?
+ * （4）一个写锁是否可以被降级？一个读锁是否可升级
  *
  * </ul>
  * You should consider all of these things when evaluating the suitability
  * of a given implementation for your application.
  *
+ * @author Doug Lea
  * @see ReentrantReadWriteLock
  * @see Lock
  * @see ReentrantLock
- *
  * @since 1.5
- * @author Doug Lea
  */
 public interface ReadWriteLock {
     /**
