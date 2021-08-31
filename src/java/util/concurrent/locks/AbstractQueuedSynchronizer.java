@@ -713,6 +713,11 @@ public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchron
 
     /**
      * Wakes up node's successor, if one exists.
+     * 找到node后面的第一个状态不是CANCELLED结点，唤醒它
+     * 具体：
+     * 在CLH的队列中，从后向前找，找到第一个node后面的状态不是CANCELLED结点
+     * 原因：
+     * 竞态条件的存在，导致节点的指针链接并不是严格一致的
      *
      * @param node the node
      */
@@ -724,6 +729,7 @@ public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchron
          */
         int ws = node.waitStatus;
         if (ws < 0)
+            // 一定会将node的状态设置为0
             compareAndSetWaitStatus(node, ws, 0);
 
         /*
@@ -739,6 +745,7 @@ public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchron
                 if (t.waitStatus <= 0)
                     s = t;
         }
+        // s 一定是node后面的第一个状态不是CANCELLED结点，唤醒它
         if (s != null)
             LockSupport.unpark(s.thread);
     }
@@ -814,11 +821,17 @@ public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchron
 
     // Utilities for various versions of acquire
 
-    /**
-     * Cancels an ongoing attempt to acquire.
-     * <p>
+    /* 该方法目的为：获取过程抛出异常后，取消正在进行的获取尝试
      * 这个方法只是修改了节点的 waitStatus 以及 next 指针，将节点彻底从队列中删除是依赖后续的遍历
      * setHead 中的 p.next = null 操作
+     *
+     * 在 AQS 源码中该方法共被 6 个地方调用（3 个独占锁，3 个共享锁）：
+     * acquireQueued / doAcquireInterruptibly / doAcquireNanos
+     * doAcquireShared / doAcquireSharedInterruptibly / doAcquireSharedNanos
+     */
+
+    /**
+     * Cancels an ongoing attempt to acquire.
      *
      * @param node the node
      */
@@ -860,6 +873,7 @@ public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchron
                 if (next != null && next.waitStatus <= 0)
                     compareAndSetNext(pred, predNext, next);
             } else {
+                // 唤醒一个节点
                 unparkSuccessor(node);
             }
 
@@ -909,6 +923,11 @@ public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchron
 
     /**
      * Convenience method to interrupt current thread.
+     * 当前线程在等待过程中被中断，中断当前线程。
+     * <p>
+     * 问题：这里为什么还要中断线程？
+     * 因为：java.util.concurrent.locks.AbstractQueuedSynchronizer#parkAndCheckInterrupt() 中的
+     * Thread.interrupted()方法清除了中断状态，这里需要有一次中断
      */
     static void selfInterrupt() {
         Thread.currentThread().interrupt();
@@ -924,7 +943,8 @@ public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchron
         LockSupport.park(this);
         // 然后判断当前线程的中断状态
         /*
-         * 问题：这里只需要知道是否中断就行了，为什么还要清除中断状态？
+         * 问题：这里只需要知道是否中断就行了，不用 Thread.currentThread().isInterrupted() ，而是
+         * 要 Thread.interrupted() 清除中断状态？
          *
          * 这是因为，中断后，如果不清除中断状态，下次 park 是不生效的。
          * 假如该线程下次仍然没有获取到锁，就 park 不住了。
@@ -984,6 +1004,8 @@ public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchron
 
     /**
      * Acquires in exclusive interruptible mode.
+     * 这里的大体是将上面的 addWaiter(Node.EXCLUSIVE) 方法和 acquireQueued 方法
+     * 这两个方法的功能合并
      *
      * @param arg the acquire argument
      */
@@ -1021,7 +1043,9 @@ public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchron
             throws InterruptedException {
         if (nanosTimeout <= 0L)
             return false;
+        // 计算等待时间
         final long deadline = System.nanoTime() + nanosTimeout;
+        // 添加当前结点到等待队列
         final Node node = addWaiter(Node.EXCLUSIVE);
         boolean failed = true;
         try {
@@ -1186,8 +1210,7 @@ public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchron
     }
 
     /**
-     * Attempts to set the state to reflect a release in exclusive
-     * mode.
+     * Attempts to set the state to reflect a release in exclusive mode.
      *
      * <p>This method is always invoked by the thread performing release.
      *
@@ -1345,6 +1368,7 @@ public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchron
      */
     public final void acquireInterruptibly(int arg)
             throws InterruptedException {
+        // 做了一次中断检验，即能快速响应中断
         if (Thread.interrupted())
             throw new InterruptedException();
         if (!tryAcquire(arg))
@@ -1377,6 +1401,7 @@ public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchron
     }
 
     /**
+     * 独占模式下释放锁
      * Releases in exclusive mode.  Implemented by unblocking one or
      * more threads if {@link #tryRelease} returns true.
      * This method can be used to implement method {@link Lock#unlock}.
@@ -1387,9 +1412,11 @@ public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchron
      * @return the value returned from {@link #tryRelease}
      */
     public final boolean release(int arg) {
+        // 子类的tryRelease方法成功，然后再执行后续逻辑
         if (tryRelease(arg)) {
             Node h = head;
             if (h != null && h.waitStatus != 0)
+                // 唤醒h(头结点)后面的第一个非CANNELED结点，即CLH队列中的第一个非CANNELED结点
                 unparkSuccessor(h);
             return true;
         }
