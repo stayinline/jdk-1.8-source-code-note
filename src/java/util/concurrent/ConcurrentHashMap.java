@@ -2277,26 +2277,30 @@ public class ConcurrentHashMap<K, V> extends AbstractMap<K, V> implements Concur
         return Integer.numberOfLeadingZeros(n) | (1 << (RESIZE_STAMP_BITS - 1));
     }
 
-    /**
+    /*
      * Initializes table, using the size recorded in sizeCtl.
+     * 注意：
+     * （1）调用时机是检查 table==null
+     * （2）ConcurrentHashMap 的初始化只能由一个线程完成
      */
     private final Node<K, V>[] initTable() {
         Node<K, V>[] tab;
         int sc;
         while ((tab = table) == null || tab.length == 0) {
-            if ((sc = sizeCtl) < 0)
+            if ((sc = sizeCtl) < 0) // <0表示正在初始化，则放弃本次初始化调用
                 Thread.yield(); // lost initialization race; just spin
             else if (U.compareAndSwapInt(this, SIZECTL, sc, -1)) {
+                // 获得了初始化权限，就用 CAS 方法将 sizeCtl 置为-1，防止其他线程进入
                 try {
                     if ((tab = table) == null || tab.length == 0) {
                         int n = (sc > 0) ? sc : DEFAULT_CAPACITY;
                         @SuppressWarnings("unchecked")
                         Node<K, V>[] nt = (Node<K, V>[]) new Node<?, ?>[n];
                         table = tab = nt;
-                        sc = n - (n >>> 2);
+                        sc = n - (n >>> 2); // 相当于0.75*n 设置一个扩容的阈值
                     }
                 } finally {
-                    sizeCtl = sc;
+                    sizeCtl = sc; // 初始化数组完成后，将 sizeCtl 的值改为 0.75 * n
                 }
                 break;
             }
@@ -2424,18 +2428,29 @@ public class ConcurrentHashMap<K, V> extends AbstractMap<K, V> implements Concur
         }
     }
 
-    /**
-     * Moves and/or copies the nodes in each bin to new table. See
-     * above for explanation.
+    /*
+     * Moves and/or copies the nodes in each bin to new table. See above for explanation.
+     * 移动和/或复制每个bin中的节点到新表中。见上面的解释。
+     *
+     * 注意：
+     * （1）是支持多线程扩容的，因为这个方法并没有加锁
+     * （2）多线程扩容也是其特点，大大的提高了扩容效率
+     *
+     * 重点：
+     * （1）ForwardingNode<K, V> fwd = new ForwardingNode<K, V>(nextTab);
+     *      这个时候创建了一个 ForwardingNode，并且在相应的时间把table[i]设置成了这个节点类型，
+     *      其他线程在遍历到这个类型的结点的时就会跳过，从而实现多线程控制transfer
+     *
      */
     private final void transfer(Node<K, V>[] tab, Node<K, V>[] nextTab) {
         int n = tab.length, stride;
         if ((stride = (NCPU > 1) ? (n >>> 3) / NCPU : n) < MIN_TRANSFER_STRIDE)
             stride = MIN_TRANSFER_STRIDE; // subdivide range
+        /*-------------------------第一部分：先创建一个 nextTable  是单线程的--------------------*/
         if (nextTab == null) {            // initiating
             try {
                 @SuppressWarnings("unchecked")
-                Node<K, V>[] nt = (Node<K, V>[]) new Node<?, ?>[n << 1];
+                Node<K, V>[] nt = (Node<K, V>[]) new Node<?, ?>[n << 1];//构造一个nextTable对象 它的容量是原来的两倍
                 nextTab = nt;
             } catch (Throwable ex) {      // try to cope with OOME
                 sizeCtl = Integer.MAX_VALUE;
@@ -2444,13 +2459,28 @@ public class ConcurrentHashMap<K, V> extends AbstractMap<K, V> implements Concur
             nextTable = nextTab;
             transferIndex = n;
         }
+        /*-------------------------第二部分：搬迁工作 ，即将原来 table 中的元素复制到 nextTable 中，这里允许多线程进行操作--------------------*/
+        /* 先看单线程流程：
+         * 它的大体思想就是遍历、复制的过程。首先根据运算得到需要遍历的次数 i，然后利用 tabAt 方法获得 i 位置的元素
+
+         * 如果这个位置为空，就在原 table 中的 i 位置放入 forwardNode 节点，这个也是触发并发扩容的关键点
+
+         * 如果这个位置是 Node 节点（fh>=0），如果它是一个链表的头节点，就构造一个反序链表，把他们分别放在 nextTable 的 i 和 i+n 的位置上
+
+         * 如果这个位置是 TreeBin 节点（fh<0），也做一个反序处理，并且判断是否需要 untreefi，把处理的结果分别放在 nextTable 的 i 和 i+n 的位置上
+
+         * 遍历过所有的节点以后就完成了复制工作，这时让 nextTable 作为新的 table，并且更新 sizeCtl 为新容量的 0.75 倍 ，完成扩容
+         *
+         * 多线程就是通过 ForwardingNode 将结点标记，然后不同的线程处理不同的 table[i] 下的节点
+         */
         int nextn = nextTab.length;
-        ForwardingNode<K, V> fwd = new ForwardingNode<K, V>(nextTab);
-        boolean advance = true;
+        ForwardingNode<K, V> fwd = new ForwardingNode<K, V>(nextTab);//构造一个连节点指针 用于标志位
+        boolean advance = true;//并发扩容的关键属性 如果等于true 说明这个节点已经处理过
         boolean finishing = false; // to ensure sweep before committing nextTab
         for (int i = 0, bound = 0; ; ) {
             Node<K, V> f;
             int fh;
+            //这个while循环体的作用就是在控制i--  通过i--可以依次遍历原hash表中的节点
             while (advance) {
                 int nextIndex, nextBound;
                 if (--i >= bound || finishing)
@@ -2470,27 +2500,35 @@ public class ConcurrentHashMap<K, V> extends AbstractMap<K, V> implements Concur
             if (i < 0 || i >= n || i + n >= nextn) {
                 int sc;
                 if (finishing) {
+                    //如果所有的节点都已经完成复制工作  就把nextTable赋值给table 清空临时对象nextTable
                     nextTable = null;
                     table = nextTab;
-                    sizeCtl = (n << 1) - (n >>> 1);
+                    sizeCtl = (n << 1) - (n >>> 1);//扩容阈值设置为原来容量的1.5倍  依然相当于现在容量的0.75倍
                     return;
                 }
+                //利用CAS方法更新这个扩容阈值，在这里面sizectl值减一，说明新加入一个线程参与到扩容操作
                 if (U.compareAndSwapInt(this, SIZECTL, sc = sizeCtl, sc - 1)) {
                     if ((sc - 2) != resizeStamp(n) << RESIZE_STAMP_SHIFT)
                         return;
                     finishing = advance = true;
                     i = n; // recheck before commit
                 }
-            } else if ((f = tabAt(tab, i)) == null)
+            }
+            //如果遍历到的节点为空 则放入ForwardingNode指针
+            else if ((f = tabAt(tab, i)) == null)
                 advance = casTabAt(tab, i, null, fwd);
+                //如果遍历到ForwardingNode节点  说明这个点已经被处理过了 直接跳过  这里是控制并发扩容的核心
             else if ((fh = f.hash) == MOVED)
                 advance = true; // already processed
             else {
+                //节点上锁
                 synchronized (f) {
                     if (tabAt(tab, i) == f) {
                         Node<K, V> ln, hn;
+                        //如果fh>=0 证明这是一个Node节点
                         if (fh >= 0) {
                             int runBit = fh & n;
+                            //以下的部分在完成的工作是构造两个链表  一个是原链表  另一个是原链表的反序排列
                             Node<K, V> lastRun = f;
                             for (Node<K, V> p = f.next; p != null; p = p.next) {
                                 int b = p.hash & n;
@@ -2515,15 +2553,22 @@ public class ConcurrentHashMap<K, V> extends AbstractMap<K, V> implements Concur
                                 else
                                     hn = new Node<K, V>(ph, pk, pv, hn);
                             }
+                            //在nextTable的i位置上插入一个链表
                             setTabAt(nextTab, i, ln);
+                            //在nextTable的i+n的位置上插入另一个链表
                             setTabAt(nextTab, i + n, hn);
+                            //在table的i位置上插入forwardNode节点  表示已经处理过该节点
                             setTabAt(tab, i, fwd);
+                            //设置advance为true 返回到上面的while循环中 就可以执行i--操作
                             advance = true;
-                        } else if (f instanceof TreeBin) {
+                        }
+                        //对TreeBin对象进行处理  与上面的过程类似
+                        else if (f instanceof TreeBin) {
                             TreeBin<K, V> t = (TreeBin<K, V>) f;
                             TreeNode<K, V> lo = null, loTail = null;
                             TreeNode<K, V> hi = null, hiTail = null;
                             int lc = 0, hc = 0;
+                            //构造正序和反序两个链表
                             for (Node<K, V> e = t.first; e != null; e = e.next) {
                                 int h = e.hash;
                                 TreeNode<K, V> p = new TreeNode<K, V>
@@ -2544,13 +2589,18 @@ public class ConcurrentHashMap<K, V> extends AbstractMap<K, V> implements Concur
                                     ++hc;
                                 }
                             }
+                            //如果扩容后已经不再需要tree的结构 反向转换为链表结构
                             ln = (lc <= UNTREEIFY_THRESHOLD) ? untreeify(lo) :
                                     (hc != 0) ? new TreeBin<K, V>(lo) : t;
                             hn = (hc <= UNTREEIFY_THRESHOLD) ? untreeify(hi) :
                                     (lc != 0) ? new TreeBin<K, V>(hi) : t;
+                            //在nextTable的i位置上插入一个链表
                             setTabAt(nextTab, i, ln);
+                            //在nextTable的i+n的位置上插入另一个链表
                             setTabAt(nextTab, i + n, hn);
+                            //在table的i位置上插入forwardNode节点  表示已经处理过该节点
                             setTabAt(tab, i, fwd);
+                            //设置advance为true 返回到上面的while循环中 就可以执行i--操作
                             advance = true;
                         }
                     }
