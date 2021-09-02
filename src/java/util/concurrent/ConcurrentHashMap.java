@@ -2938,6 +2938,7 @@ public class ConcurrentHashMap<K, V> extends AbstractMap<K, V> implements Concur
 
         /**
          * Creates bin with initial set of nodes headed by b.
+         * 根据传入的节点，将整个链表转换成红黑树
          */
         TreeBin(TreeNode<K, V> b) {
             // 父类 Node的构造方法，用来创建一个节点，并将该结点的hash值设置为 TREEBIN=-2
