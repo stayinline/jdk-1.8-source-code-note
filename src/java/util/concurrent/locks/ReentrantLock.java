@@ -116,7 +116,7 @@ public class ReentrantLock implements Lock, java.io.Serializable {
      * into fair and nonfair versions below. Uses AQS state to
      * represent the number of holds on the lock.
      * <p>
-     * 用AQS 的state类表示等待在锁上的线程数
+     * 用AQS 的state来表示等待在锁上的线程数
      */
     abstract static class Sync extends AbstractQueuedSynchronizer {
         private static final long serialVersionUID = -5179523762034025860L;
@@ -136,7 +136,7 @@ public class ReentrantLock implements Lock, java.io.Serializable {
          */
         final boolean nonfairTryAcquire(int acquires) {
             final Thread current = Thread.currentThread();
-            // AQS d的state
+            // AQS 的state
             int c = getState();
             if (c == 0) {
                 // 为0说明没有线程在等待，初始化state，并返回true
