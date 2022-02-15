@@ -204,6 +204,7 @@ public class ThreadLocal<T> {
         Thread t = Thread.currentThread();
         ThreadLocalMap map = getMap(t);
         if (map != null)
+            // k是ThreadLocal自己这个对象
             map.set(this, value);
         else
             createMap(t, value);
@@ -488,6 +489,7 @@ public class ThreadLocal<T> {
 
             tab[i] = new Entry(key, value);
             int sz = ++size;
+            // 清理被回收引用的key
             if (!cleanSomeSlots(i, sz) && sz >= threshold)
                 rehash();
         }
