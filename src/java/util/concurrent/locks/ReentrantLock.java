@@ -264,7 +264,9 @@ public class ReentrantLock implements Lock, java.io.Serializable {
                 // 此处继续设置值，如果state是负数，那么由后序的else if分支处理这个逻辑
                 if (!hasQueuedPredecessors() &&
                         compareAndSetState(0, acquires)) {
-                    // 等待队列有等待线程，并且设置state成功
+                    // 第一个校验：等待队列没有等待线程或者等待线程就是当前线程，
+                    //          这就实现了公平的原理：不是自己的锁，不释放，只有自己才能释放自己的锁
+                    // 第二个校验：并且设置state成功
                     // 设置所有者为自己
                     setExclusiveOwnerThread(current);
                     return true;
