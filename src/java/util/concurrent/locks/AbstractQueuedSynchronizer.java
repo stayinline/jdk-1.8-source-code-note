@@ -383,13 +383,13 @@ public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchron
      * expert group, for helpful ideas, discussions, and critiques
      * on the design of this class.
      */
-    /*
+    /**
      * 线程的等待队列，实现是一个双向链表，结点定义是静态内部类 Node，
      * 是CLH锁的改进版实现，本质也是自旋式的
-     *
+     * <p>
      * 注意：
      * “CLH” 队列需要一个虚拟头节点来开始。但是我们不在构建时就创建它，因为如果不存在竞争，这就是在做无用功。
-     *
+     * <p>
      * 相反，在第一次竞争时构造节点并设置头尾指针（延迟初始化）。
      */
     static final class Node {
@@ -2204,6 +2204,7 @@ public abstract class AbstractQueuedSynchronizer extends AbstractOwnableSynchron
         public final void await() throws InterruptedException {
             if (Thread.interrupted())
                 throw new InterruptedException();
+            // 将当前线程添加到等待队列中
             Node node = addConditionWaiter();
             int savedState = fullyRelease(node);
             int interruptMode = 0;
